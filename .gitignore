@@ -1,0 +1,12 @@
+config.php
+.env
+.env.local
+*.log
+.cache/
+uploads/*
+!uploads/.gitkeep
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.sublime-*

@@ -1,0 +1,21 @@
+<?php
+require __DIR__ . '/bootstrap.php'; UserSession::requireLogin();
+$uid=UserSession::id();$id=(int)($_GET['id']??0);$isEdit=$id>0;$tugas=$isEdit?TaskRepository::find($id,$uid):null;if($isEdit&&!$tugas)redirect('tugas.php');
+$template=null;if(!$isEdit&&isset($_GET['template'])){$q=Database::conn()->prepare('SELECT t.title,t.description,t.category_id,t.default_priority FROM templates t WHERE t.id=:id');$q->execute(['id'=>(int)$_GET['template']]);$t=$q->fetch();if($t)$template=['judul'=>$t['title'],'deskripsi'=>$t['description'],'kategori_id'=>$t['category_id'],'prioritas'=>strtolower($t['default_priority'])];}$formValues=$tugas??$template??[];
+$kategori=CategoryRepository::all($uid);$page=$isEdit?'Edit tugas':'Tambah tugas';$subtitle='Rencanakan pekerjaan berikutnya dengan detail yang tepat.';$pageAction=['href'=>'tugas.php','label'=>'Batal'];require __DIR__.'/header.php';
+?>
+<form method="post" action="tugas_action.php" class="task-editor">
+<input type="hidden" name="_csrf" value="<?= csrf_token() ?>"><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?= $id ?>">
+<div class="editor-main"><section class="card form"><h3>Informasi tugas</h3>
+<label>Judul tugas *<input name="judul" value="<?= e($formValues['judul']??'') ?>" required maxlength="200" placeholder="Tulis nama tugas"></label>
+<label>Deskripsi<textarea name="deskripsi" rows="4" placeholder="Tambahkan konteks atau detail tugas"><?= e($formValues['deskripsi']??'') ?></textarea></label>
+<div class="form-row"><label>Kategori<select name="kategori_id"><option value="">Tanpa kategori</option><?php foreach($kategori as $k): ?><option value="<?= (int)$k['id'] ?>" <?= ($formValues['kategori_id']??'')==$k['id']?'selected':'' ?>><?= e($k['nama']) ?></option><?php endforeach; ?></select></label><label>Penanggung jawab<input value="<?= e(UserSession::user()['nama']) ?>" disabled></label></div>
+<div class="form-row"><label>Prioritas<select name="prioritas"><?php foreach(['rendah','sedang','tinggi'] as $p): ?><option value="<?= $p ?>" <?= ($formValues['prioritas']??'sedang')===$p?'selected':'' ?>><?= e(prioritas_label($p)) ?></option><?php endforeach; ?></select></label><label>Progress (%)<input type="number" name="progress" min="0" max="100" value="<?= e($formValues['progress']??0) ?>"></label></div>
+<label>Status<select name="status"><?php foreach(['belum','proses','selesai'] as $s): ?><option value="<?= $s ?>" <?= ($formValues['status']??'belum')===$s?'selected':'' ?>><?= e(status_label($s)) ?></option><?php endforeach; ?></select></label>
+</section>
+<section class="card form"><h3>Jadwal & pengulangan</h3><label>Tanggal dan waktu tenggat *<input type="datetime-local" name="deadline" required value="<?= e(!empty($tugas['deadline'])?date('Y-m-d\TH:i',strtotime($tugas['deadline'])):date('Y-m-d\TH:i',strtotime('+1 day'))) ?>"></label>
+<label class="check-label"><input type="checkbox" name="is_recurring" <?= !empty($tugas['is_recurring'])?'checked':'' ?>> Jadikan tugas berulang</label><label>Ulangi setiap<select name="recurrence_rule"><option value="daily">Setiap hari</option><option value="weekly" selected>Setiap minggu</option><option value="monthly">Setiap bulan</option></select></label></section></div>
+<aside class="editor-side"><section class="card form"><h3>Reminder</h3><p class="muted small">Pengingat dijadwalkan sebelum tenggat.</p><label>Pengingat pertama<select name="reminder_minutes"><option value="10">10 menit sebelumnya</option><option value="30" selected>30 menit sebelumnya</option><option value="60">1 jam sebelumnya</option><option value="1440">1 hari sebelumnya</option></select></label><label class="check-label"><input type="checkbox" name="reminder_email"> Kirim salinan melalui email</label><div class="info-box">Jam tenang workspace tetap berlaku. Reminder dijadwalkan sesuai tenggat tugas.</div></section>
+<section class="card"><h3>Ringkasan</h3><p class="muted small">Tugas akan tersimpan di workspace dan dapat diperbarui kapan saja.</p><button class="btn btn-primary btn-block"><?= $isEdit?'Simpan perubahan':'✓ Simpan tugas' ?></button><a class="btn btn-block" href="tugas.php">Batal</a></section></aside>
+</form>
+<?php require __DIR__.'/footer.php'; ?>
