@@ -1,0 +1,188 @@
+<?php
+require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/partial_focus.php';
+
+if (UserSession::check())
+    redirect((UserSession::user()['role'] ?? '') === 'Admin' ? 'fitur.php?p=pengguna' : 'tugas.php');
+
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verify_csrf();
+    $nama = trim($_POST['nama'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $pass = $_POST['password'] ?? '';
+    $pass2 = $_POST['password2'] ?? '';
+
+    if ($nama === '' || $email === '' || $pass === '') {
+        $error = 'Semua kolomnya diisi dulu, ya.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Format emailnya kayaknya belum benar. Cek lagi, ya.';
+    } elseif (strlen($pass) < 12) {
+        $error = 'Kata sandi minimal 12 karakter, ya.';
+    } elseif ($pass !== $pass2) {
+        $error = 'Ulangi kata sandinya belum cocok. Coba cek lagi, ya.';
+    } else {
+        [$ok, $msg] = UserSession::register($nama, $email, $pass);
+        if ($ok) {
+            flash('success', 'Akunmu berhasil dibuat! Yuk, masuk.');
+            redirect('login.php');
+        } else
+            $error = $msg;
+    }
+}
+?>
+<!doctype html>
+<html lang="id">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Registrasi — Takify</title>
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%235b55e7'/%3E%3Cpath d='M32 12a2 2 0 0 1 2 2v1.2c5 1.1 9 5.6 9 11.1v9l3 4v1.5H18V39.3l3-4v-9c0-5.5 4-10 9-11.1V14a2 2 0 0 1 2-2z' fill='white'/%3E%3Cpath d='M27 43a5 5 0 0 0 10 0z' fill='white'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .password-wrapper input {
+            padding-right: 40px !important;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #a0a7b8;
+            display: grid;
+            place-items: center;
+            transition: color 0.2s;
+            margin-top: 11px;
+        }
+
+        .toggle-password:hover {
+            color: var(--primary);
+        }
+
+        .toggle-password svg {
+            width: 20px !important;
+            height: 20px !important;
+            fill: currentColor;
+        }
+    </style>
+</head>
+
+<body class="account-page">
+    <main class="account-card account-layout account-layout-register">
+        <aside class="account-panel">
+            <a class="account-brand" href="index.php" aria-label="Takify"
+                style="display: flex; align-items: center; gap: 10px; text-decoration: none;">
+                <!-- LOGO DIKUNCI UKURANNYA MUTLAK -->
+                <div
+                    style="display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; min-width: 36px; min-height: 36px; background-color: #ffffff; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); flex-shrink: 0;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#5b55e7"
+                        style="width: 22px; height: 22px; min-width: 22px; min-height: 22px; max-width: 22px; max-height: 22px; flex-shrink: 0;">
+                        <path
+                            d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z" />
+                    </svg>
+                </div>
+                <span style="font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -0.5px;">Takify</span>
+            </a>
+            <div class="account-panel-copy">
+                <span class="account-panel-kicker">MULAI DARI SINI</span>
+                <h2>Atur tugasmu.<br>Beresin satu-satu.</h2>
+                <p>Biar semua rencana dan tugasmu lebih gampang diatur.</p>
+            </div>
+            <div class="auth-preview">
+                <div class="auth-preview-head"><b>Fokus hari ini</b><span>
+                        <?= date('l, d M') ?>
+                    </span></div>
+                <?php render_focus_slider(); ?>
+                <div class="preview-reminder">♧ &nbsp; Pengingat di waktu yang tepat</div>
+            </div>
+            <div class="account-panel-note"><span class="account-live-dot"></span> Semua tugas, nggak berantakan lagi.
+            </div>
+        </aside>
+
+        <section class="account-content">
+            <div class="account-heading">
+                <p class="account-eyebrow">BIKIN AKUN BARU</p>
+                <h1>Yuk, gabung!</h1>
+                <p class="muted">Isi data ini dulu, habis itu kamu bisa mulai.</p>
+            </div>
+
+            <?php if ($error): ?>
+                <div class="alert alert-error" role="alert">
+                    <?= e($error) ?>
+                </div>
+            <?php endif; ?>
+
+            <form method="post" class="form">
+                <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
+                <label for="nama">Nama lengkap <input id="nama" name="nama" value="<?= e($_POST['nama'] ?? '') ?>"
+                        autocomplete="name" maxlength="100" placeholder="Nama kamu" required></label>
+                <label for="email">Email <input id="email" type="email" name="email"
+                        value="<?= e($_POST['email'] ?? '') ?>" autocomplete="email" placeholder="nama@email.com"
+                        required></label>
+
+                <label for="password" class="password-wrapper">Kata sandi
+                    <input id="password" type="password" name="password" autocomplete="new-password" minlength="12"
+                        placeholder="Minimal 12 karakter" required>
+                    <span class="toggle-password" onclick="togglePass('password', this)">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
+                        </svg>
+                    </span>
+                </label>
+
+                <label for="password2" class="password-wrapper">Ulangi kata sandi
+                    <input id="password2" type="password" name="password2" autocomplete="new-password" minlength="12"
+                        placeholder="Masukkan ulang kata sandi" required>
+                    <span class="toggle-password" onclick="togglePass('password2', this)">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
+                        </svg>
+                    </span>
+                </label>
+
+                <button class="btn btn-primary btn-block account-submit">Buat akun</button>
+            </form>
+
+            <p class="account-footer">Sudah punya akun? <a href="login.php">Masuk aja</a></p>
+        </section>
+    </main>
+
+    <script>
+        function togglePass(inputId, iconElement) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                iconElement.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>';
+            } else {
+                input.type = 'password';
+                iconElement.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>';
+            }
+        }
+
+        document.querySelectorAll('a[href="login.php"]').forEach(link => link.addEventListener('click', event => {
+            event.preventDefault();
+            document.body.classList.add('auth-page-leaving');
+            setTimeout(() => { window.location.href = link.href; }, 180);
+        }));
+        document.querySelector('.account-content form')?.addEventListener('submit', event => {
+            if (!event.target.reportValidity()) return;
+            event.preventDefault();
+            document.body.classList.add('auth-page-leaving');
+            setTimeout(() => event.target.submit(), 180);
+        });
+    </script>
+</body>
+
+</html>

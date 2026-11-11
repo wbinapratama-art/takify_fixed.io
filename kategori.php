@@ -1,0 +1,117 @@
+<?php
+require __DIR__ . '/bootstrap.php';
+UserSession::requireLogin();
+$uid = UserSession::id();
+$cats = CategoryRepository::all($uid);
+$selected = (int) ($_GET['id'] ?? ($cats[0]['id'] ?? 0));
+$active = null;
+foreach ($cats as $cat)
+    if ((int) $cat['id'] === $selected)
+        $active = $cat;
+$pdo = Database::conn();
+$stats = [];
+foreach ($cats as $cat) {
+    $q = $pdo->prepare('SELECT COUNT(*) FROM tasks WHERE category_id=:id');
+    $q->execute(['id' => $cat['id']]);
+    $stats[$cat['id']] = (int) $q->fetchColumn();
+}
+$page = 'Kategori';
+$subtitle = 'Berikan ruang yang jelas untuk setiap jenis pekerjaan.';
+$pageAction = ['href' => '#new-category', 'label' => '＋ Tambah kategori'];
+require __DIR__ . '/header.php';
+?>
+<div class="category-layout">
+    <div class="category-column">
+        <form class="card form" id="new-category" method="post" action="kategori_action.php">
+            <h3>Tambah kategori</h3>
+            <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
+            <input type="hidden" name="action" value="create">
+            <label>Nama kategori
+                <input name="nama" required maxlength="50" placeholder="Contoh: Produk">
+            </label>
+            <label>Warna<input type="color" name="warna" value="#5b55e7"></label>
+            <button class="btn btn-primary">Simpan kategori</button>
+        </form>
+        <section class="category-list">
+            <?php foreach ($cats as $cat): ?>
+                <a class="card category-card <?= (int) $cat['id'] === $selected ? 'selected' : '' ?>"
+                    href="kategori.php?id=<?= (int) $cat['id'] ?>">
+                    <span class="category-icon" style="color:<?= e($cat['warna']) ?>">▱</span>
+                    <b>
+                        <?= e($cat['nama']) ?>
+                    </b>
+                    <small>
+                        <?= e($cat['description'] ?? 'Kategori') ?>
+                    </small>
+                    <span>
+                        <?= $stats[$cat['id']] ?? 0 ?> tugas aktif
+                    </span>
+                </a>
+            <?php endforeach; ?>
+        </section>
+    </div>
+    <div>
+        <?php if ($active): ?>
+            <section class="card category-detail">
+                <div class="category-head">
+                    <span class="category-icon" style="color:<?= e($active['warna']) ?>">▱</span>
+                    <div>
+                        <h2>
+                            <?= e($active['nama']) ?>
+                        </h2><small class="muted">Kategori</small>
+                    </div>
+                    <span class="chip">Dibagikan</span>
+                </div>
+                <form class="form" method="post" action="kategori_action.php">
+                    <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
+                    <input type="hidden" name="action" value="update">
+                    <input type="hidden" name="id" value="<?= (int) $active['id'] ?>">
+                    <label>Nama kategori
+                        <input name="nama" value="<?= e($active['nama']) ?>" required maxlength="50">
+                    </label>
+                    <label>Deskripsi
+                        <textarea name="deskripsi" rows="3"><?= e($active['description'] ?? '') ?></textarea>
+                    </label>
+                    <div class="color-options">
+                        <b>Warna</b>
+                        <input type="color" name="warna" value="<?= e($active['warna']) ?>">
+                    </div>
+                    <button class="btn btn-primary">Simpan perubahan</button>
+                </form>
+            </section>
+            <section class="card">
+                <h3>Berbagi kategori</h3>
+                <div class="info-box">Akses kategori mengikuti anggota dan izin yang tersimpan.</div>
+                <?php $members = $pdo->prepare('SELECT u.name,u.email,cm.access_level FROM category_members cm JOIN users u ON u.id=cm.user_id WHERE cm.category_id=:id');
+                $members->execute(['id' => $active['id']]);
+                $members = $members->fetchAll();
+                foreach ($members as $m): ?>
+                    <div class="simple-row"><b>
+                            <?= e($m['name']) ?><small>
+                                <?= e($m['email']) ?>
+                            </small>
+                        </b><span class="badge">
+                            <?= e($m['access_level']) ?>
+                        </span></div>
+                <?php endforeach; ?>
+                <?php if (!$members): ?>
+                    <p class="muted">Belum ada pengaturan anggota spesifik untuk kategori ini.</p>
+                <?php endif; ?>
+            </section>
+            <section class="card category-bottom">
+                <a class="btn" href="tugas.php">Lihat
+                    <?= $stats[$active['id']] ?? 0 ?> tugas
+                </a>
+                <form method="post" action="kategori_action.php" onsubmit="return confirm('Hapus kategori ini?')">
+                    <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="id" value="<?= (int) $active['id'] ?>">
+                    <button class="btn btn-danger">Hapus kategori</button>
+                </form>
+            </section>
+        <?php else: ?>
+            <section class="card empty">Pilih kategori untuk melihat detailnya.</section>
+        <?php endif; ?>
+    </div>
+</div>
+<?php require __DIR__ . '/footer.php'; ?>
